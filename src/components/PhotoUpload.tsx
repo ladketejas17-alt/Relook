@@ -1,38 +1,46 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Camera, Check, ImagePlus, RotateCcw } from 'lucide-react'
-
-type PhotoView = 'Front' | 'Back' | 'Left' | 'Right'
-
-const views: PhotoView[] = ['Front', 'Back', 'Left', 'Right']
+import { photoViews, validatePhoto, type Photos, type PhotoView } from '../domain/generationRequest'
 
 type PhotoUploadProps = {
-  onStatusChange?: (ready: boolean) => void
+  photos: Photos
+  onChange: (photos: Photos) => void
 }
 
-export default function PhotoUpload({ onStatusChange }: PhotoUploadProps) {
-  const [photos, setPhotos] = useState<
-    Partial<Record<PhotoView, File>>
-  >({})
+function PhotoPreview({ file, view }: { file: File; view: PhotoView }) {
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    const nextUrl = URL.createObjectURL(file)
+    setUrl(nextUrl)
+    return () => URL.revokeObjectURL(nextUrl)
+  }, [file])
+  return url ? <img src={url} alt={`${view} view`} className="h-full w-full object-cover" /> : null
+}
+
+export default function PhotoUpload({ photos, onChange }: PhotoUploadProps) {
 
   const [activeView, setActiveView] = useState<PhotoView>('Front')
+  const [error, setError] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFile = (file?: File) => {
-    if (!file || !file.type.startsWith('image/')) return
+    if (!file) return
+    const validationError = validatePhoto(file)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+    setError(null)
 
     const updatedPhotos = {
       ...photos,
       [activeView]: file,
     }
 
-    setPhotos(updatedPhotos)
+    onChange(updatedPhotos)
 
-    if (views.every((view) => updatedPhotos[view])) {
-      onStatusChange?.(true)
-    }
-
-    const nextView = views.find((view) => !updatedPhotos[view])
+    const nextView = photoViews.find((view) => !updatedPhotos[view])
 
     if (nextView) {
       setActiveView(nextView)
@@ -48,18 +56,15 @@ export default function PhotoUpload({ onStatusChange }: PhotoUploadProps) {
   }
 
   const removePhoto = (view: PhotoView) => {
-    setPhotos((current) => {
-      const updated = { ...current }
-      delete updated[view]
-      return updated
-    })
-
+    const updated = { ...photos }
+    delete updated[view]
+    onChange(updated)
+    setError(null)
     setActiveView(view)
-    onStatusChange?.(false)
   }
 
-  const completedCount = views.filter((view) => photos[view]).length
-  const allComplete = completedCount === views.length
+  const completedCount = photoViews.filter((view) => photos[view]).length
+  const allComplete = completedCount === photoViews.length
 
   return (
     <section className="w-full">
@@ -101,7 +106,7 @@ export default function PhotoUpload({ onStatusChange }: PhotoUploadProps) {
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {views.map((view) => {
+        {photoViews.map((view) => {
           const photo = photos[view]
           const isActive = activeView === view
 
@@ -118,11 +123,7 @@ export default function PhotoUpload({ onStatusChange }: PhotoUploadProps) {
               <div className="relative aspect-[3/4] overflow-hidden bg-slate-100">
                 {photo ? (
                   <>
-                    <img
-                      src={URL.createObjectURL(photo)}
-                      alt={`${view} view`}
-                      className="h-full w-full object-cover"
-                    />
+                    <PhotoPreview file={photo} view={view} />
 
                     <div className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white shadow">
                       <Check className="h-4 w-4" />
@@ -186,11 +187,12 @@ export default function PhotoUpload({ onStatusChange }: PhotoUploadProps) {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
-        capture="user"
+        accept="image/jpeg,image/png,image/webp"
         onChange={handleInputChange}
         className="hidden"
       />
+
+      {error && <p role="alert" className="mt-4 text-center text-sm text-red-700">{error}</p>}
 
       {!allComplete && (
         <p className="mt-6 text-center text-sm text-slate-500">

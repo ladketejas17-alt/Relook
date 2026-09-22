@@ -6,27 +6,26 @@ import PhotoUpload from '../components/PhotoUpload'
 import HairstyleCard from '../components/HairstyleCard'
 import { hairstyles } from '../data/hairstyles'
 import Preferences, { type HairPreferences } from '../components/Preferences'
+import { createGenerationRequest, photoViews, type HairstyleChoice, type Photos } from '../domain/generationRequest'
 
 export default function Home() {
-  const [selectedHairstyle, setSelectedHairstyle] = useState<string | null>(
-    null,
-  )
-  const [customSelected, setCustomSelected] = useState(false)
+  const [hairstyleChoice, setHairstyleChoice] = useState<HairstyleChoice | null>(null)
   const [customDescription, setCustomDescription] = useState('')
 
-  const [photosReady, setPhotosReady] = useState(false)
+  const [photos, setPhotos] = useState<Photos>({})
   const [preferences, setPreferences] = useState<HairPreferences>({ length: null, texture: null, color: null })
 
+  const customSelected = hairstyleChoice?.kind === 'custom'
+  const selectedHairstyle = hairstyleChoice?.kind === 'preset' ? hairstyleChoice.id : null
   const selectedHairstyleData = hairstyles.find(
     (hairstyle) => hairstyle.id === selectedHairstyle,
   )
   const customText = customDescription.trim()
   const customValid = customText.length >= 10 && customText.length <= 500
-  const styleSelected = customSelected || Boolean(selectedHairstyleData)
-  const requestReady = Boolean(
-    photosReady && preferences.length && preferences.texture && preferences.color &&
-    (customSelected ? customValid : selectedHairstyleData),
-  )
+  const photosReady = photoViews.every((view) => Boolean(photos[view]))
+  const styleSelected = Boolean(hairstyleChoice)
+  const requestResult = createGenerationRequest({ photos, hairstyle: hairstyleChoice, preferences })
+  const requestReady = requestResult.ok
 
   return (
     <div className="bg-white">
@@ -302,7 +301,7 @@ export default function Home() {
       {/* Photo Upload */}
       <section id="photos" className="bg-slate-50 py-20 sm:py-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <PhotoUpload onStatusChange={setPhotosReady} />
+          <PhotoUpload photos={photos} onChange={setPhotos} />
         </div>
       </section>
 
@@ -326,9 +325,9 @@ export default function Home() {
                 hairstyle={hairstyle}
                 selected={selectedHairstyle === hairstyle.id}
                 onSelect={(selected) => {
-                  setCustomSelected(false)
-                  setSelectedHairstyle((current) =>
-                    current === selected.id ? null : selected.id,
+                  setHairstyleChoice((current) =>
+                    current?.kind === 'preset' && current.id === selected.id
+                      ? null : { kind: 'preset', id: selected.id },
                   )
                   setPreferences({ length: null, texture: null, color: null })
                 }}
@@ -343,8 +342,8 @@ export default function Home() {
                 <p className="mt-1 text-sm text-slate-600">Describe your own haircut instead of choosing a preset.</p>
               </div>
               <button type="button" aria-pressed={customSelected} onClick={() => {
-                setCustomSelected((current) => !current)
-                setSelectedHairstyle(null)
+                setHairstyleChoice((current) => current?.kind === 'custom'
+                  ? null : { kind: 'custom', description: customDescription })
               }} className={`rounded-full px-4 py-2 text-sm font-semibold ${customSelected ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700'}`}>
                 {customSelected ? 'Custom style selected' : 'Choose custom style'}
               </button>
@@ -353,7 +352,10 @@ export default function Home() {
               <div className="mt-5">
                 <label htmlFor="custom-style" className="block text-sm font-medium text-slate-900">Describe your hairstyle</label>
                 <p id="custom-style-help" className="mt-1 text-sm text-slate-500">Mention the cut, shape, fringe, or details you want. Use 10–500 characters.</p>
-                <textarea id="custom-style" aria-describedby="custom-style-help custom-style-count" aria-invalid={customText.length > 0 && !customValid} value={customDescription} onChange={(event) => setCustomDescription(event.target.value)} maxLength={500} rows={4} placeholder="e.g. Messy wolf cut with curtain bangs and tapered volume" className="mt-3 w-full rounded-xl border border-slate-300 p-3 text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                <textarea id="custom-style" aria-describedby="custom-style-help custom-style-count" aria-invalid={customText.length > 0 && !customValid} value={customDescription} onChange={(event) => {
+                  setCustomDescription(event.target.value)
+                  setHairstyleChoice({ kind: 'custom', description: event.target.value })
+                }} maxLength={500} rows={4} placeholder="e.g. Messy wolf cut with curtain bangs and tapered volume" className="mt-3 w-full rounded-xl border border-slate-300 p-3 text-slate-900 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-200" />
                 <p id="custom-style-count" className="mt-1 text-sm text-slate-500">{customText.length}/500 characters {customText.length > 0 && !customValid ? '— add more detail' : ''}</p>
               </div>
             )}
@@ -400,7 +402,7 @@ export default function Home() {
                 <p className="mt-5 text-sm text-slate-500">
                   {requestReady
                     ? 'Your choices are ready. Generation is coming in the next step.'
-                    : 'Add all four photos, choose each preference, and complete your custom description if selected.'}
+                    : requestResult.errors.join(' ')}
                 </p>
               </div>
             </>
