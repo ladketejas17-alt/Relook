@@ -62,7 +62,7 @@ export default function GenerateLook({ request }: { request: GenerationRequest }
 
   return <section className="mt-6 rounded-2xl border border-blue-200 bg-white p-6" aria-labelledby="generate-heading">
     <h3 id="generate-heading" className="text-lg font-semibold text-slate-900">Generate your look with Gemini</h3>
-    <p className="mt-2 text-sm text-slate-600">Use your own Gemini API key. When you generate, Solair sends the key and your four photos through its server to Google for this request. We do not save them in your browser storage or on the Solair server. Google may charge your project for the generation.</p>
+    <p className="mt-2 text-sm text-slate-600">Use your own Gemini API key. When you generate, Solair sends the key and your four photos through its server to Google for this request. We do not save them in your browser storage or on the Solair server. This image model requires a Google project with paid API access; Google charges your project for generation.</p>
     <label htmlFor="gemini-key" className="mt-5 block text-sm font-medium text-slate-900">Your Gemini API key</label>
     <input id="gemini-key" type="password" autoComplete="off" value={key} onChange={event => setKey(event.target.value)} placeholder="Paste your key" className="mt-2 w-full rounded-xl border border-slate-300 p-3 text-slate-900" />
     <button type="button" disabled={!key.trim() || busy} onClick={generate} className="mt-4 rounded-lg bg-blue-600 px-5 py-2.5 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">{busy ? 'Generating…' : 'Generate look'}</button>

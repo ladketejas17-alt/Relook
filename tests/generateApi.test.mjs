@@ -61,16 +61,33 @@ test('rejects incomplete, forged, and cross-origin requests before calling provi
 })
 
 test('redacts provider failure details and rejects responses without an image', async () => {
-  await withServer(async () => ({ ok: false, status: 403 }), async origin => {
+  await withServer(async () => ({ ok: false, status: 403, json: async () => ({ error: { code: 'permission_denied', message: `Secret: ${payload.apiKey}` } }) }), async origin => {
     const response = await send(origin, payload)
     assert.equal(response.status, 502)
-    assert.doesNotMatch(JSON.stringify(await response.json()), /private-test-key/)
+    const body = await response.json()
+    assert.equal(body.providerStatus, 403)
+    assert.equal(body.providerCode, 'permission_denied')
+    assert.doesNotMatch(JSON.stringify(body), /private-test-key/)
   })
   await withServer(async () => ({ ok: true, json: async () => ({ steps: [{ type: 'model_output', content: [{ type: 'text', text: 'No image' }] }] }) }), async origin => {
     const response = await send(origin, payload)
     assert.equal(response.status, 502)
     assert.match((await response.json()).error, /did not return an image/)
   })
+})
+
+test('distinguishes a missing billing prerequisite from an invalid request', async () => {
+  for (const [code, expected] of [['failed_precondition', /paid API access/], ['invalid_request', /integration issue/]]) {
+    await withServer(async () => ({ ok: false, status: 400, json: async () => ({ error: { code, message: `Do not echo ${payload.apiKey}` } }) }), async origin => {
+      const response = await send(origin, payload)
+      const body = await response.json()
+      assert.equal(response.status, 502)
+      assert.equal(body.providerStatus, 400)
+      assert.equal(body.providerCode, code)
+      assert.match(body.error, expected)
+      assert.doesNotMatch(JSON.stringify(body), /private-test-key/)
+    })
+  }
 })
 
 test('Vite forwards the browser host for same-origin generation requests', async () => {

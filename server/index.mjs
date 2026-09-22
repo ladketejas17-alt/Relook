@@ -68,6 +68,37 @@ function imageFromResponse(response) {
   return null
 }
 
+async function providerFailure(response) {
+  // Google can return account details and request fragments in error messages.
+  // Map only its documented machine-readable code, never forward raw text.
+  let code
+  try {
+    const body = await response.json()
+    code = typeof body?.error?.code === 'string' && /^[a-z_]{1,50}$/.test(body.error.code)
+      ? body.error.code : undefined
+  } catch { /* Some upstream failures contain no JSON body. */ }
+  const byCode = {
+    authentication: 'Gemini could not authenticate this key. Create a new restricted Gemini API key.',
+    failed_precondition: 'Gemini says this project is missing a requirement, often paid API access. Check the project linked to this key in Google AI Studio.',
+    payment_required: 'Gemini reports that this project needs billing credits. Check its billing settings in Google AI Studio.',
+    permission_denied: 'This key or its project cannot use Gemini image generation. Check its API restrictions and project access.',
+    invalid_request: 'Gemini rejected the request format. This may be a Solair integration issue; report the error code to us.',
+    parameter_unknown: 'Gemini rejected a request parameter. This may be a Solair integration issue; report the error code to us.',
+    model_not_found: 'This Gemini image model is unavailable for the selected project.',
+    quota_exceeded: 'This project has no remaining Gemini image quota. Check the project’s tier and limits.',
+    rate_limit_exceeded: 'Gemini rate limit reached. Please try again later.',
+  }
+  const byStatus = {
+    400: 'Gemini could not process this request. Check the project’s billing status or report this error to us.',
+    401: 'Gemini could not authenticate this key. Check the key in Google AI Studio.',
+    402: 'Gemini says this project needs billing credits.',
+    403: 'This key or project does not have permission to use Gemini image generation.',
+    404: 'The Gemini image model is unavailable for this project.',
+    429: 'Gemini quota or rate limit reached. Check the project’s tier and limits.',
+  }
+  return { error: code && Object.hasOwn(byCode, code) ? byCode[code] : byStatus[response.status] ?? 'Gemini is unavailable. Please try again later.', providerStatus: response.status, ...(code ? { providerCode: code } : {}) }
+}
+
 async function readJson(req) {
   const declared = Number(req.headers['content-length'])
   if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) throw new Error('Request too large.')
@@ -114,9 +145,7 @@ export function createApp({ provider = fetch, dist = resolve('dist') } = {}) {
           signal: AbortSignal.timeout(120_000),
         })
         if (!result.ok) {
-          const message = [400, 401, 403].includes(result.status) ? 'Gemini rejected the key or request. Check your API key and model access.'
-            : result.status === 429 ? 'Gemini rate limit reached. Please try again later.' : 'Gemini is unavailable. Please try again later.'
-          return reply(res, 502, { error: message })
+          return reply(res, 502, await providerFailure(result))
         }
         const image = imageFromResponse(await result.json())
         return image ? reply(res, 200, image) : reply(res, 502, { error: 'Gemini did not return an image. Try again or use the copyable prompt.' })
