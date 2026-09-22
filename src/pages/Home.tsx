@@ -6,6 +6,7 @@ import PhotoUpload from '../components/PhotoUpload'
 import HairstyleCard from '../components/HairstyleCard'
 import { hairstyles } from '../data/hairstyles'
 import Preferences, { type HairPreferences } from '../components/Preferences'
+import PromptFallback from '../components/PromptFallback'
 import { createGenerationRequest, photoViews, type HairstyleChoice, type Photos } from '../domain/generationRequest'
 
 export default function Home() {
@@ -23,6 +24,7 @@ export default function Home() {
   const customText = customDescription.trim()
   const customValid = customText.length >= 10 && customText.length <= 500
   const photosReady = photoViews.every((view) => Boolean(photos[view]))
+  const missingViews = photoViews.filter((view) => !photos[view])
   const styleSelected = Boolean(hairstyleChoice)
   const requestResult = createGenerationRequest({ photos, hairstyle: hairstyleChoice, preferences })
   const requestReady = requestResult.ok
@@ -394,17 +396,18 @@ export default function Home() {
                 <dl className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
                   <div><dt className="inline font-medium">Style: </dt><dd className="inline">{customSelected ? 'Custom hairstyle' : selectedHairstyleData?.name}</dd></div>
                   {customSelected && <div className="sm:col-span-2"><dt className="font-medium">Your description:</dt><dd className="mt-1 whitespace-pre-wrap break-words">{customText || 'Describe your hairstyle above'}</dd></div>}
-                  <div><dt className="inline font-medium">Photos: </dt><dd className="inline">{photosReady ? 'Four views ready' : 'Four views needed'}</dd></div>
+                  <div><dt className="inline font-medium">Photos: </dt><dd className="inline">{photosReady ? '4 of 4 ready' : `${4 - missingViews.length} of 4 added — ${missingViews.join(', ')} missing`}</dd></div>
                   <div><dt className="inline font-medium">Length: </dt><dd className="inline capitalize">{preferences.length ?? 'Choose a length'}</dd></div>
                   <div><dt className="inline font-medium">Texture: </dt><dd className="inline capitalize">{preferences.texture ?? 'Choose a texture'}</dd></div>
                   <div><dt className="inline font-medium">Color: </dt><dd className="inline capitalize">{preferences.color === 'natural' ? 'Keep my natural color' : preferences.color ?? 'Choose a color'}</dd></div>
                 </dl>
                 <p className="mt-5 text-sm text-slate-500">
                   {requestReady
-                    ? 'Your choices are ready. Generation is coming in the next step.'
+                    ? 'Your request is ready. Review and copy your prompt below.'
                     : requestResult.errors.join(' ')}
                 </p>
               </div>
+              {requestResult.ok && <PromptFallback key={`${requestResult.request.hairstyle.kind}-${customText}-${preferences.length}-${preferences.texture}-${preferences.color}`} request={requestResult.request} />}
             </>
           ) : <p className="rounded-xl border border-slate-200 bg-white p-6 text-slate-600">Select a preset or choose a custom hairstyle above to get started.</p>}
         </div>
