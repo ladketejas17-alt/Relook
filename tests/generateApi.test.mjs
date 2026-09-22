@@ -2,6 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createApp } from '../server/index.mjs'
 import { hairstyles } from '../src/data/hairstyles.ts'
+import { createServer as createVite } from 'vite'
+import viteConfig from '../vite.config.ts'
 
 const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]).toString('base64')
 const photo = { mimeType: 'image/png', data: png }
@@ -68,5 +70,23 @@ test('redacts provider failure details and rejects responses without an image', 
     const response = await send(origin, payload)
     assert.equal(response.status, 502)
     assert.match((await response.json()).error, /did not return an image/)
+  })
+})
+
+test('Vite forwards the browser host for same-origin generation requests', async () => {
+  await withServer(() => { throw Error('Provider must not be called') }, async apiOrigin => {
+    const vite = await createVite({
+      ...viteConfig,
+      configFile: false,
+      server: { ...viteConfig.server, port: 0, proxy: { '/api': { ...viteConfig.server.proxy['/api'], target: apiOrigin } } },
+    })
+    try {
+      await vite.listen()
+      const origin = `http://localhost:${vite.httpServer.address().port}`
+      const response = await send(origin, {})
+      assert.equal(response.status, 400)
+      assert.match((await response.json()).error, /API key/)
+      assert.equal((await send(origin, {}, { Origin: 'https://elsewhere.example' })).status, 403)
+    } finally { await vite.close() }
   })
 })
