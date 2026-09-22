@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Camera, Eye, Palette, Sparkles } from 'lucide-react'
 
 import Header from '../components/Header'
@@ -7,6 +7,7 @@ import HairstyleCard from '../components/HairstyleCard'
 import { hairstyles } from '../data/hairstyles'
 import Preferences, { type HairPreferences } from '../components/Preferences'
 import PromptFallback from '../components/PromptFallback'
+import GenerateLook from '../components/GenerateLook'
 import { createGenerationRequest, photoViews, type HairstyleChoice, type Photos } from '../domain/generationRequest'
 
 export default function Home() {
@@ -26,7 +27,7 @@ export default function Home() {
   const photosReady = photoViews.every((view) => Boolean(photos[view]))
   const missingViews = photoViews.filter((view) => !photos[view])
   const styleSelected = Boolean(hairstyleChoice)
-  const requestResult = createGenerationRequest({ photos, hairstyle: hairstyleChoice, preferences })
+  const requestResult = useMemo(() => createGenerationRequest({ photos, hairstyle: hairstyleChoice, preferences }), [photos, hairstyleChoice, preferences])
   const requestReady = requestResult.ok
 
   return (
@@ -206,7 +207,7 @@ export default function Home() {
               </h3>
 
               <p className="text-slate-600">
-                See exactly how you'll look with the new hairstyle. Bring the
+                Preview how the new hairstyle could look. Bring the
                 visualization to your stylist.
               </p>
             </div>
@@ -403,11 +404,11 @@ export default function Home() {
                 </dl>
                 <p className="mt-5 text-sm text-slate-500">
                   {requestReady
-                    ? 'Your request is ready. Review and copy your prompt below.'
+                    ? 'Your request is ready. Generate a look or copy your prompt below.'
                     : requestResult.errors.join(' ')}
                 </p>
               </div>
-              {requestResult.ok && <PromptFallback key={`${requestResult.request.hairstyle.kind}-${customText}-${preferences.length}-${preferences.texture}-${preferences.color}`} request={requestResult.request} />}
+              {requestResult.ok && <><GenerateLook request={requestResult.request} /><PromptFallback key={`${requestResult.request.hairstyle.kind}-${customText}-${preferences.length}-${preferences.texture}-${preferences.color}`} request={requestResult.request} /></>}
             </>
           ) : <p className="rounded-xl border border-slate-200 bg-white p-6 text-slate-600">Select a preset or choose a custom hairstyle above to get started.</p>}
         </div>

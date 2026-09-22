@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "test": "node --test --experimental-strip-types tests/*.test.ts tests/*.test.mjs",
     "dev": "vite",
+    "dev:api": "node --experimental-strip-types server/index.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },

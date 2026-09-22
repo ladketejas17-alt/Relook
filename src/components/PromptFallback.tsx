@@ -20,7 +20,7 @@ export default function PromptFallback({ request }: { request: GenerationRequest
       <h3 id="prompt-heading" className="text-lg font-semibold text-slate-900">Use your prompt in an AI image tool</h3>
       <p className="mt-2 text-sm text-slate-600">
         Copy the text, then attach your four photos separately in this order: Front, Back, Left, Right.
-        Your photos stay on this device until you choose to upload them to that tool.
+        The copy button does not upload your photos. Attach them separately in your AI tool.
       </p>
       <label htmlFor="generated-prompt" className="mt-5 block text-sm font-medium text-slate-900">Your prompt</label>
       <textarea id="generated-prompt" readOnly value={prompt} rows={12} className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 p-3 text-sm text-slate-800" />
